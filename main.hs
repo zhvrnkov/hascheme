@@ -14,9 +14,6 @@ data Exp = EAtom Atom | List [Exp]
 data Atom = INumber Int | FNumber Float | Symbol String
   deriving (Eq, Show)
 
-data Token = String String | ListStart | ListEnd
-  deriving (Eq, Show)
-
 instance Read Exp where
   readsPrec index = (readP_to_S (list <|> atom)) . salt_input
     where openBracket  = char '('
@@ -27,15 +24,17 @@ instance Read Exp where
 instance Read Atom where
   readsPrec index input 
     | null input = []
-    | otherwise = [(atom, intercalate " " xs)]
+    | otherwise = [(atom x, intercalate " " xs)]
     where x:xs    = words input
-          atom    = maybe (maybe (symbol (x, "")) (fnumber) float) (inumber) int
-          int     = listToMaybe (readsPrec index x :: [(Int, String)])
-          float   = listToMaybe (readsPrec index x :: [(Float, String)])
-          inumber = INumber . fst
-          fnumber = FNumber . fst
-          symbol  = Symbol  . fst
+          atom    = fmap (fst . head) $ readP_to_S (int <++ float <++ symbol)
+          int     = fmap INumber $ (readS_to_P (reads :: ReadS Int))
+          float   = fmap FNumber $ (readS_to_P (reads :: ReadS Float))
+          symbol  = fmap Symbol  $ ((readS_to_P (reads :: ReadS String)) <++ (readS_to_P name))
 
+name :: String -> [(String, String)]
+name input = [(x, intercalate " " xs)]
+  where x:xs = words input
+        
 main = interact repl
 
 repl :: String -> String
