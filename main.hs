@@ -1,14 +1,15 @@
 import qualified Data.Map as M
 import Data.Maybe
 import Text.ParserCombinators.ReadP
-import Data.List
+import qualified Data.List as L
 import Control.Applicative((<|>))
 
 data Env = Env { values :: (M.Map String Atom)
                , parent :: (Maybe Env)
-               }
+               } deriving Show
 
 newtype EvalResult a = EvalResult { getResult :: (a, Env) }
+  deriving Show
 
 instance Functor EvalResult where
   fmap f (EvalResult (x, env)) = EvalResult $ (f x, env)
@@ -29,7 +30,7 @@ instance Read Exp where
 instance Read Atom where
   readsPrec index input 
     | null input = []
-    | otherwise = [(atom x, intercalate " " xs)]
+    | otherwise = [(atom x, L.intercalate " " xs)]
     where x:xs    = words input
           atom    = fmap (fst . head) $ readP_to_S (int <++ float <++ symbol)
           int     = fmap INumber $ (readS_to_P (reads :: ReadS Int))
@@ -37,7 +38,7 @@ instance Read Atom where
           symbol  = fmap Symbol  $ ((readS_to_P (reads :: ReadS String)) <++ (readS_to_P name))
 
 name :: String -> [(String, String)]
-name input = [(x, intercalate " " xs)]
+name input = [(x, L.intercalate " " xs)]
   where x:xs = words input
         
 main = interact repl
@@ -58,7 +59,10 @@ eval env (List [EAtom (Symbol "if"), test, conseq, alt]) = EvalResult (result, n
         (result, nenv1)      = getResult $ if is_test_true 
                                     then eval nenv conseq
                                     else eval nenv alt
-eval env (List exps) = undefined
+
+eval env (List [EAtom (Symbol "define"), (EAtom (Symbol symbol)), exp]) = EvalResult (INumber 1, new_env)
+  where (result, nenv) = getResult $ eval env exp
+        new_env        = insert nenv symbol result 
 
 repl :: String -> String
 repl = show . parse 
@@ -75,6 +79,10 @@ salt_input = concat . map paren
 
 (!) :: Env -> String -> Atom
 (!) env key = (M.!) (values env) key
+
+insert :: Env -> String -> Atom -> Env
+insert src key value = Env content (parent src)
+  where content = M.insert key value (values src)
 
 boolify :: Atom -> Bool
 boolify (INumber int) = int /= 0
