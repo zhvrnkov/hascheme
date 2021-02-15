@@ -47,7 +47,11 @@ eval env (EAtom int@(INumber _))   = int
 eval env (EAtom float@(FNumber _)) = float
 eval env (EAtom (Symbol symbol))   = env ! symbol
 
-eval env (List list) = undefined
+eval env (List [EAtom (Symbol "if"), test, conseq, alt]) 
+  | is_test_true = eval env conseq
+  | otherwise    = eval env alt
+  where is_test_true = boolify . (eval env) $ test
+eval env (List exps) = undefined
 
 repl :: String -> String
 repl = show . parse 
@@ -64,3 +68,8 @@ salt_input = concat . map paren
 
 (!) :: Env -> String -> Atom
 (!) env key = (M.!) (values env) key
+
+boolify :: Atom -> Bool
+boolify (INumber int) = int /= 0
+boolify (FNumber flt) = flt /= 0
+boolify (Symbol str)  = not . null $ str
