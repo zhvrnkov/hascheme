@@ -41,12 +41,23 @@ name :: String -> [(String, String)]
 name input = [(x, L.intercalate " " xs)]
   where x:xs = words input
         
-main = interact repl
+main = emain global_env
 
-exec = (eval global_env) . parse
+emain :: Env -> IO ()
+emain env = do
+  line <- getLine
+  let (result, new_env) = getResult $ exec env line
+  putStrLn $ show result
+  emain new_env
+
+exec env input = (eval env) . parse $ input
 
 parse :: String -> Exp
 parse = read
+
+-- evals :: [Env] -> Exp -> [Atom]
+-- evals exps env
+--  where (result,  
 
 eval :: Env -> Exp -> EvalResult Atom
 
