@@ -4,7 +4,7 @@ import Text.ParserCombinators.ReadP
 import Data.List
 import Control.Applicative((<|>))
 
-data Env = Env { values :: (M.Map String String)
+data Env = Env { values :: (M.Map String Atom)
                , parent :: (Maybe Env)
                }
 
@@ -37,11 +37,24 @@ name input = [(x, intercalate " " xs)]
         
 main = interact repl
 
+exec = (eval global_env) . parse
+
+parse :: String -> Exp
+parse = read
+
+eval :: Env -> Exp -> Atom
+eval env (EAtom int@(INumber _))   = int
+eval env (EAtom float@(FNumber _)) = float
+eval env (EAtom (Symbol symbol))   = env ! symbol
+
+eval env (List list) = undefined
+
 repl :: String -> String
-repl = undefined
+repl = show . parse 
 
 global_env :: Env
-global_env = Env M.empty Nothing
+global_env = Env (M.fromList content) Nothing
+  where content = [("foo", INumber 2)]
 
 salt_input :: String -> String
 salt_input = concat . map paren
@@ -49,3 +62,5 @@ salt_input = concat . map paren
         paren ')' = " )"
         paren c   = [c]
 
+(!) :: Env -> String -> Atom
+(!) env key = (M.!) (values env) key
