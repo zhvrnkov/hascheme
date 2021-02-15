@@ -8,6 +8,11 @@ data Env = Env { values :: (M.Map String Atom)
                , parent :: (Maybe Env)
                }
 
+newtype EvalResult a = EvalResult { getResult :: (a, Env) }
+
+instance Functor EvalResult where
+  fmap f (EvalResult (x, env)) = EvalResult $ (f x, env)
+
 data Exp = EAtom Atom | List [Exp]
   deriving (Eq, Show)
 
@@ -42,15 +47,17 @@ exec = (eval global_env) . parse
 parse :: String -> Exp
 parse = read
 
-eval :: Env -> Exp -> Atom
-eval env (EAtom int@(INumber _))   = int
-eval env (EAtom float@(FNumber _)) = float
-eval env (EAtom (Symbol symbol))   = env ! symbol
+eval :: Env -> Exp -> EvalResult Atom
 
-eval env (List [EAtom (Symbol "if"), test, conseq, alt]) 
-  | is_test_true = eval env conseq
-  | otherwise    = eval env alt
-  where is_test_true = boolify . (eval env) $ test
+eval env (EAtom int@(INumber _))   = EvalResult (int, env)
+eval env (EAtom float@(FNumber _)) = EvalResult (float, env)
+eval env (EAtom (Symbol symbol))   = EvalResult (env ! symbol, env)
+
+eval env (List [EAtom (Symbol "if"), test, conseq, alt]) = EvalResult (result, nenv1)
+  where (is_test_true, nenv) = (getResult . (fmap boolify) . (eval env)) $ test
+        (result, nenv1)      = getResult $ if is_test_true 
+                                    then eval nenv conseq
+                                    else eval nenv alt
 eval env (List exps) = undefined
 
 repl :: String -> String
