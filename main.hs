@@ -3,10 +3,14 @@ import Data.Maybe
 import Text.ParserCombinators.ReadP
 import qualified Data.List as L
 import Control.Applicative((<|>))
+import Data.Monoid
 
-data Env = Env { values :: (M.Map String Atom)
+data Env = Env { values :: (M.Map String ExpValue)
                , parent :: (Maybe Env)
                } deriving Show
+
+data ExpValue = EVAtom Atom | EVProcedure Procedure
+  deriving (Show)
 
 newtype EvalResult a = EvalResult { getResult :: (a, Env) }
   deriving Show
@@ -19,6 +23,18 @@ data Exp = EAtom Atom | List [Exp]
 
 data Atom = INumber Int | FNumber Float | Symbol String
   deriving (Eq, Show)
+
+data Procedure = Procedure { params :: [String]
+                           , body :: Env -> EvalResult ExpValue
+                           }
+
+instance Show Procedure where
+  show _ = "procedure"
+
+p_math op = Procedure ["x", "y"] (\env -> let (EVAtom (INumber x)) = env ! "x"
+                                              (EVAtom (INumber y)) = env ! "y"
+                                              r                    = (EVAtom (INumber (op x y)))
+                                          in EvalResult (r, env)) 
 
 instance Read Exp where
   readsPrec index = (readP_to_S (list <|> atom)) . salt_input
@@ -55,14 +71,10 @@ exec env input = (eval env) . parse $ input
 parse :: String -> Exp
 parse = read
 
--- evals :: [Env] -> Exp -> [Atom]
--- evals exps env
---  where (result,  
+eval :: Env -> Exp -> EvalResult ExpValue
 
-eval :: Env -> Exp -> EvalResult Atom
-
-eval env (EAtom int@(INumber _))   = EvalResult (int, env)
-eval env (EAtom float@(FNumber _)) = EvalResult (float, env)
+eval env (EAtom int@(INumber _))   = EvalResult (EVAtom int, env)
+eval env (EAtom float@(FNumber _)) = EvalResult (EVAtom float, env)
 eval env (EAtom (Symbol symbol))   = EvalResult (env ! symbol, env)
 
 eval env (List [EAtom (Symbol "if"), test, conseq, alt]) = EvalResult (result, nenv1)
@@ -71,16 +83,26 @@ eval env (List [EAtom (Symbol "if"), test, conseq, alt]) = EvalResult (result, n
                                     then eval nenv conseq
                                     else eval nenv alt
 
-eval env (List [EAtom (Symbol "define"), (EAtom (Symbol symbol)), exp]) = EvalResult (INumber 1, new_env)
+eval env (List [EAtom (Symbol "define"), (EAtom (Symbol symbol)), exp]) = EvalResult (EVAtom $ INumber 1, new_env)
   where (result, nenv) = getResult $ eval env exp
         new_env        = insert nenv symbol result 
+
+eval env (List (proc_name@(EAtom (Symbol _)):proc_args)) = body proc new_env
+  where ((EVProcedure proc), nenv) = getResult $ eval env proc_name
+        pargs        = zip (params proc) (map (fst . getResult . (eval nenv)) proc_args) -- evaling only with nenv?
+        new_env      = Env (M.fromList ((M.toList $ values nenv) ++ pargs)) (parent nenv)
 
 repl :: String -> String
 repl = show . parse 
 
 global_env :: Env
-global_env = Env (M.fromList content) Nothing
-  where content = [("foo", INumber 2)]
+global_env = Env (M.fromList $ wrap_ps content) Nothing
+  where content = [("+", p_math (+))
+                  ,("-", p_math (-))
+                  ,("/", p_math (div))
+                  ,("*", p_math (*))
+                  ]
+        wrap_ps = map (\(x, y) -> (x, EVProcedure y))
 
 salt_input :: String -> String
 salt_input = concat . map paren
@@ -88,14 +110,14 @@ salt_input = concat . map paren
         paren ')' = " )"
         paren c   = [c]
 
-(!) :: Env -> String -> Atom
+(!) :: Env -> String -> ExpValue
 (!) env key = (M.!) (values env) key
 
-insert :: Env -> String -> Atom -> Env
+insert :: Env -> String -> ExpValue -> Env
 insert src key value = Env content (parent src)
   where content = M.insert key value (values src)
 
-boolify :: Atom -> Bool
-boolify (INumber int) = int /= 0
-boolify (FNumber flt) = flt /= 0
-boolify (Symbol str)  = not . null $ str
+boolify :: ExpValue -> Bool
+boolify (EVAtom (INumber int)) = int /= 0
+boolify (EVAtom (FNumber flt)) = flt /= 0
+boolify (EVAtom (Symbol str))  = not . null $ str
