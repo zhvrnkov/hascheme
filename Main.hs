@@ -7,8 +7,14 @@ import Data.Either
 
 p_math op = Procedure ["x", "y"] (\env -> let (EVAtom (Number x)) = env ! "x"
                                               (EVAtom (Number y)) = env ! "y"
-                                              r                   = (EVAtom (Number (op x y)))
-                                          in EvalResult (r, env)) 
+                                              r                   = num (op x y)
+                                          in EvalResult (r, env))
+
+b_math op = Procedure ["x", "y"] (\env -> let (EVAtom (Number x)) = env ! "x"
+                                              (EVAtom (Number y)) = env ! "y"
+                                          in EvalResult (if op x y
+                                                          then num 1
+                                                          else num 0, env))
 
 main = emain global_env
 
@@ -28,6 +34,13 @@ global_env = Env (M.fromList $ wrap_ps content) Nothing
                   ,("-", p_math (-))
                   ,("/", p_math (div))
                   ,("*", p_math (*))
+                  ,("<", b_math (<))
+                  ,(">", b_math (>))
+                  ,("=", b_math (==))
+                  ,(">=", b_math (>=))
+                  ,("<=", b_math (<=))
                   ]
         wrap_ps = map (\(x, y) -> (x, EVProcedure y))
 
+num :: Int -> ExpValue
+num = EVAtom . Number
