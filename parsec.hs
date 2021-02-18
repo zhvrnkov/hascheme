@@ -4,22 +4,34 @@ type Parser a = Parsec String () a
 
 pword :: Parser String
 pword = do
-  x <- many1 alphaNum
+  x <- many1 $ noneOf ['(', ')']
   return x
+
+pnum :: Parser Int
+pnum = do
+  num <- parsecMap read (many1 digit)
+  notFollowedBy letter
+  return num
 
 pwords :: Parser [String]
 pwords = do
   xs <- sepBy pword space
   return xs
 
-data Exp = Exp String | List [Exp]
-  deriving Show
+data Exp = EAtom Atom | EList [Exp]
+  deriving (Show, Eq)
 
-eword = parsecMap Exp pword
+data Atom = Number Int | Symbol String
+  deriving (Show, Eq)
 
-plist :: Parser [String]
-plist = (between (char '(') (char ')') plist) <|> (sepBy (pword <|> (parsecMap concat plist)) space)
+eatom :: Parser Exp
+eatom = parsecMap EAtom atom
+
+atom :: Parser Atom
+atom = choice [number, symbol]
+  where number = parsecMap Number $ try pnum
+        symbol = parsecMap Symbol pword
 
 elist :: Parser Exp
-elist = (between (char '(') (char ')') elist) <|> (parsecMap List (sepBy (eword <|> elist) space))
+elist = (between (char '(') (char ')') elist) <|> (parsecMap EList (sepBy (eatom <|> elist) space))
 
