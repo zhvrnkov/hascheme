@@ -4,7 +4,7 @@ type Parser a = Parsec String () a
 
 pword :: Parser String
 pword = do
-  x <- many1 $ noneOf ['(', ')']
+  x <- many1 $ noneOf ['(', ')', ' ']
   return x
 
 pnum :: Parser Int
@@ -33,5 +33,5 @@ atom = choice [number, symbol]
         symbol = parsecMap Symbol pword
 
 elist :: Parser Exp
-elist = (between (char '(') (char ')') elist) <|> (parsecMap EList (sepBy (eatom <|> elist) space))
+elist = (between (char '(') (char ')') (parsecMap EList (sepBy (eatom <|> elist) space)))
 
