@@ -1,11 +1,18 @@
 * hascheme
 My raw implementation of Scheme language interpreter written in Haskell and nicely guided by [[https://norvig.com/lispy.html][lispy]].
 
-It's working but doesn't do match yet and this probably will not be fixed.
+It's working in general but isn't useful yet and this probably will not be fixed.
 
 To run you this you need haskell.
 
-** TODO
+** WWD (What were done)
+- parsing via parsec
+- if expression
+- define statement
+- procedures call
+- repl
+
+** TBD (To be done)
 - more operators to global_env
 - quotation
 - assignment (set!)
