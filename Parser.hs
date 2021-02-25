@@ -12,7 +12,7 @@ data Atom = Number Int | Symbol String
   deriving (Show, Eq)
 
 parse :: String -> Either ParseError Exp
-parse = P.parse elist ""
+parse = P.parse (elist <|> eatom) ""
 
 elist :: Parser Exp
 elist = (between (char '(') (char ')') (parsecMap EList (sepBy (eatom <|> elist) space)))
