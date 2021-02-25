@@ -41,10 +41,20 @@ eval env (EList [EAtom (Symbol "define"), (EAtom (Symbol symbol)), exp]) = EvalR
 eval env (EList [EAtom (Symbol "lambda"), (EList params), exp]) = EvalResult (EVProcedure procedure, env)
   where procedure = Procedure (symbols params) (\env -> eval env exp)
 
-eval env (EList (proc_name@(EAtom (Symbol _)):proc_args)) = body proc new_env
+eval env (EList (proc_name@(EAtom (Symbol _)):proc_args)) = eval_procedure proc proc_args nenv
   where ((EVProcedure proc), nenv) = getResult $ eval env proc_name
-        pargs        = zip (params proc) (map (fst . getResult . (eval nenv)) proc_args) -- evaling only with nenv?
-        new_env      = Env (M.fromList ((M.toList $ values nenv) ++ pargs)) (parent nenv)
+
+eval env (EList exps) = eval_procedure proc args nenv
+  where exp = head exps
+        args = tail exps
+        ((EVProcedure proc), nenv) = getResult $ eval env exp
+
+eval_procedure :: Procedure -> [Exp] -> Env -> EvalResult ExpValue
+eval_procedure proc args env = (body proc) new_env
+  where evaluated_args = map (fst . getResult . (eval env)) args
+        params_map     = zip (params proc) evaluated_args
+        new_env        = Env (M.fromList ((M.toList $ values env) ++ params_map)) (parent env)
+
 
 (!) :: Env -> String -> ExpValue
 (!) env key = (M.!) (values env) key
