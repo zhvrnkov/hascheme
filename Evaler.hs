@@ -1,6 +1,7 @@
 module Evaler where
 import Parser
 import qualified Data.Map as M
+import Data.Maybe
 
 data Env = Env { values :: (M.Map String ExpValue)
                , parent :: (Maybe Env)
@@ -37,6 +38,9 @@ eval env (EList [EAtom (Symbol "define"), (EAtom (Symbol symbol)), exp]) = EvalR
   where (result, nenv) = getResult $ eval env exp
         new_env        = insert nenv symbol result
 
+eval env (EList [EAtom (Symbol "lambda"), (EList params), exp]) = EvalResult (EVProcedure procedure, env)
+  where procedure = Procedure (symbols params) (\env -> eval env exp)
+
 eval env (EList (proc_name@(EAtom (Symbol _)):proc_args)) = body proc new_env
   where ((EVProcedure proc), nenv) = getResult $ eval env proc_name
         pargs        = zip (params proc) (map (fst . getResult . (eval nenv)) proc_args) -- evaling only with nenv?
@@ -52,3 +56,11 @@ insert src key value = Env content (parent src)
 boolify :: ExpValue -> Bool
 boolify (EVAtom (Number num)) = num /= 0
 boolify (EVAtom (Symbol str)) = not . null $ str
+
+symbols :: [Exp] -> [String]
+symbols exps = mapMaybe maybe_symbol exps
+
+maybe_symbol :: Exp -> Maybe String
+maybe_symbol (EAtom (Symbol string)) = Just string
+maybe_symbol _ = Nothing
+

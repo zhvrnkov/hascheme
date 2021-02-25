@@ -29,7 +29,7 @@ exec env input = eval env exp
   where [exp] = (rights $ [parse input])
 
 global_env :: Env
-global_env = Env (M.fromList $ wrap_ps content) Nothing
+global_env = Env (M.fromList $ wrap_ps content ++ [("foo", EVAtom $ Number 0)]) Nothing
   where content = [("+", p_math (+))
                   ,("-", p_math (-))
                   ,("/", p_math (div))
